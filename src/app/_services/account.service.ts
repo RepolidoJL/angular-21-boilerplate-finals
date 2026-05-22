@@ -114,6 +114,10 @@ export class AccountService {
     }
 
     update(id: string, params: any) {
+        if (!params.password) {
+            delete params.password;
+        }
+        delete params.confirmPassword;
         return this.http.put(`${baseUrl}/${id}`, params)
             .pipe(map((account: any) => {
                 // update the current account if it was updated
