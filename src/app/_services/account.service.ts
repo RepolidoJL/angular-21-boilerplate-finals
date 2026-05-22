@@ -8,6 +8,7 @@ import { environment } from '@environments/environment';
 import { Account } from '@app/_models';
 
 const baseUrl = `${environment.apiUrl}/accounts`;
+const accountKey = 'current-account';
 
 @Injectable({ providedIn: 'root' })
 export class AccountService {
@@ -30,6 +31,7 @@ export class AccountService {
         return this.http.post<any>(`${baseUrl}/authenticate`, { email, password }, { withCredentials: true })
             .pipe(map(account => {
                 this.accountSubject.next(account);
+                localStorage.setItem(accountKey, JSON.stringify(account));
                 this.startRefreshTokenTimer();
                 return account;
             }));
@@ -39,6 +41,7 @@ export class AccountService {
         this.http.post<any>(`${baseUrl}/revoke-token`, {}, { withCredentials: true }).subscribe();
         this.stopRefreshTokenTimer();
         this.accountSubject.next(null);
+        localStorage.removeItem(accountKey);
         this.router.navigate(['/account/login']);
     }
 
@@ -46,9 +49,36 @@ export class AccountService {
         return this.http.post<any>(`${baseUrl}/refresh-token`, {}, { withCredentials: true })
             .pipe(map(account => {
                 this.accountSubject.next(account);
+                localStorage.setItem(accountKey, JSON.stringify(account));
                 this.startRefreshTokenTimer();
                 return account;
             }));
+    }
+
+    restoreAccount(): Account | null {
+        const stored = localStorage.getItem(accountKey);
+        if (!stored) return null;
+
+        const account: Account = JSON.parse(stored);
+        if (!account?.jwtToken) {
+            localStorage.removeItem(accountKey);
+            return null;
+        }
+
+        try {
+            const jwtBase64 = account.jwtToken.split('.')[1];
+            const jwtToken = JSON.parse(atob(jwtBase64));
+            if (jwtToken.exp * 1000 > Date.now()) {
+                this.accountSubject.next(account);
+                this.startRefreshTokenTimer();
+                return account;
+            }
+        } catch {
+            // invalid token format
+        }
+
+        localStorage.removeItem(accountKey);
+        return null;
     }
 
     register(account: Account) {
