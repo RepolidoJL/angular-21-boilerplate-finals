@@ -52,7 +52,7 @@ export class AccountService {
     }
 
     register(account: Account) {
-        return this.http.post(`${baseUrl}/register`, account);
+        return this.http.post(`${baseUrl}/register`, account, { withCredentials: true });
     }
 
     verifyEmail(token: string) {
